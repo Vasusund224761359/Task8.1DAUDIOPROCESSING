@@ -1,0 +1,74 @@
+import speech_recognition as speech
+import RPi.GPIO as pi_gpio
+import tkinter as ui
+
+
+PIN_LED = 17
+pi_gpio.setmode(pi_gpio.BCM)
+pi_gpio.setup(PIN_LED, pi_gpio.OUT)
+
+
+window = ui.Tk()
+window.title("Voice-Based LED Control")
+window.geometry("420x220")
+
+label_status = ui.Label(
+    window, text="LED is OFF", font=("Helvetica", 16)
+)
+label_status.pack(pady=25)
+
+def refresh_label(state):
+    label_status.config(text=f"LED is {'ON' if state else 'OFF'}")
+    window.update()
+
+
+def process_voice():
+    listener = speech.Recognizer()
+    with speech.Microphone() as mic:
+        print("Listening for voice input...")
+        label_status.config(text="Listening...")
+        window.update()
+        captured_audio = listener.listen(mic)
+
+    try:
+        result = listener.recognize_google(captured_audio).lower()
+        print("Recognized:", result)
+
+        if "light" in result and "on" in result:
+            pi_gpio.output(PIN_LED, pi_gpio.HIGH)
+            refresh_label(True)
+            print("LED turned ON.")
+        elif "light" in result and "off" in result:
+            pi_gpio.output(PIN_LED, pi_gpio.LOW)
+            refresh_label(False)
+            print("LED turned OFF.")
+        else:
+            print("Command not recognized.")
+            label_status.config(text="Unrecognized command.")
+    except speech.UnknownValueError:
+        print("Could not understand the input.")
+        label_status.config(text="Didn't catch that.")
+    except speech.RequestError as error:
+        print(f"Speech recognition error: {error}")
+        label_status.config(text="Recognition error.")
+
+
+btn_listen = ui.Button(
+    window,
+    text="Start Listening",
+    command=process_voice,
+    font=("Helvetica", 14)
+)
+btn_listen.pack(pady=10)
+
+btn_exit = ui.Button(
+    window,
+    text="Close App",
+    command=lambda: (pi_gpio.cleanup(), window.destroy()),
+    font=("Helvetica", 14)
+)
+btn_exit.pack(pady=10)
+
+
+refresh_label(False)
+window.mainloop()
